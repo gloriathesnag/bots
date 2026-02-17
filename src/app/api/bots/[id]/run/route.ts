@@ -24,8 +24,16 @@ export async function POST(
     return NextResponse.json({ error: `Unknown bot: ${id}` }, { status: 404 });
   }
 
-  // TODO: dynamically import and invoke the correct bot module
-  // e.g. const { runContentStrategist } = await import(`@/bots/${id}`);
+  if (id === "content-strategist") {
+    const { runContentStrategist } = await import(
+      "@/bots/content-strategist/index"
+    );
+    const calendar = await runContentStrategist();
+    return NextResponse.json(
+      { botId: id, output: { calendar } },
+      { status: 200 },
+    );
+  }
 
   return NextResponse.json(
     {
