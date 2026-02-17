@@ -98,7 +98,14 @@ export default function ContentCalendar({ items }: ContentCalendarProps) {
                   {item.date}
                 </td>
                 <td className="px-4 py-3">
-                  <p className="text-white font-medium mb-0.5">{item.title}</p>
+                  <div className="flex items-center gap-2 mb-0.5">
+                    <p className="text-white font-medium">{item.title}</p>
+                    {item.fromSlack && (
+                      <span className="shrink-0 inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-semibold bg-green-900/50 text-green-400 border border-green-700/60">
+                        # Slack
+                      </span>
+                    )}
+                  </div>
                   <p className="text-zinc-500 leading-relaxed">
                     {item.description}
                   </p>
