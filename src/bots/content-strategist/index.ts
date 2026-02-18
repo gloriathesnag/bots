@@ -130,6 +130,9 @@ const EVERGREEN_ITEMS: Omit<ContentCalendarItem, "week" | "date">[] = [
   },
 ];
 
+/** A single content brief passed from Nova to the Content Writer bot. */
+export type ContentBrief = ContentCalendarItem;
+
 export async function runContentStrategist(): Promise<ContentCalendarItem[]> {
   const today = new Date();
   const calendar: ContentCalendarItem[] = [];
