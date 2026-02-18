@@ -3,6 +3,7 @@
  *
  * Responsibilities:
  * - Read recent product and partner announcements from Slack #announcements
+ * - Read upcoming and completed tickets/epics from Linear
  * - Generate a 12-week content calendar that prioritises real launch signals
  * - Fill remaining weeks with evergreen thought-leadership and campaign content
  * - Output briefs consumable by the Content Writer bot
@@ -10,6 +11,7 @@
 
 import { ContentCalendarItem, Channel } from "@/types/bot";
 import { fetchAnnouncementSignals, SlackSignal } from "@/lib/slack";
+import { fetchLinearSignals, LinearSignal } from "@/lib/linear";
 
 function addWeeks(baseDate: Date, weeks: number): string {
   const d = new Date(baseDate);
@@ -23,8 +25,30 @@ function toHeadline(text: string): string {
   return first.length > 80 ? first.slice(0, 77) + "…" : first;
 }
 
-function channelForType(type: SlackSignal["type"]): Channel {
+function channelForType(type: SlackSignal["type"] | LinearSignal["type"]): Channel {
   return type === "partner-launch" ? "All channels" : "Email + X";
+}
+
+function linearItemToCalendarEntry(
+  signal: LinearSignal,
+  week: number,
+  date: string,
+): ContentCalendarItem {
+  const isCompleted = signal.state === "Done" || signal.completedAt != null;
+  const prefix = isCompleted ? "Launch Recap: " : "Coming Soon: ";
+  return {
+    week,
+    date,
+    title: `${prefix}${signal.title}`,
+    type: signal.type === "other" ? "product-launch" : signal.type,
+    description: `Sourced from Linear (${signal.state}). ${
+      signal.description
+        ? signal.description.slice(0, 120).trimEnd() + "…"
+        : "Expand with product context and customer angle."
+    }`,
+    channels: channelForType(signal.type),
+    fromLinear: true,
+  };
 }
 
 const EVERGREEN_ITEMS: Omit<ContentCalendarItem, "week" | "date">[] = [
@@ -119,18 +143,31 @@ export async function runContentStrategist(): Promise<ContentCalendarItem[]> {
   const calendar: ContentCalendarItem[] = [];
 
   // --- 1. Pull real signals from Slack #announcements ---
-  let signals: SlackSignal[] = [];
+  let slackSignals: SlackSignal[] = [];
   try {
-    signals = await fetchAnnouncementSignals();
-    // Most recent first; cap at 4 so Slack signals don't crowd out planned content
-    signals = signals.slice(0, 4);
+    slackSignals = await fetchAnnouncementSignals();
+    // Cap at 3 so Slack signals share the front of the calendar with Linear
+    slackSignals = slackSignals.slice(0, 3);
   } catch {
-    // If Slack is unreachable (e.g. missing env vars in dev), continue with evergreen content
-    signals = [];
+    // If Slack is unreachable (e.g. missing env vars in dev), continue without
+    slackSignals = [];
   }
 
-  // --- 2. Slot Slack-derived items into the first available weeks ---
-  for (const signal of signals) {
+  // --- 2. Pull tickets and epics from Linear ---
+  let linearSignals: LinearSignal[] = [];
+  try {
+    const all = await fetchLinearSignals();
+    // Prefer product-launch / partner-launch tickets; cap at 3 slots
+    linearSignals = all
+      .filter((s) => s.type !== "other")
+      .slice(0, 3);
+  } catch {
+    // If Linear is unreachable (e.g. missing API key in dev), continue without
+    linearSignals = [];
+  }
+
+  // --- 3. Slot Slack-derived items first ---
+  for (const signal of slackSignals) {
     const week = calendar.length + 1;
     calendar.push({
       week,
@@ -143,7 +180,13 @@ export async function runContentStrategist(): Promise<ContentCalendarItem[]> {
     });
   }
 
-  // --- 3. Fill remaining weeks (up to 12) with evergreen planned content ---
+  // --- 4. Slot Linear tickets into the next available weeks ---
+  for (const signal of linearSignals) {
+    const week = calendar.length + 1;
+    calendar.push(linearItemToCalendarEntry(signal, week, addWeeks(today, week - 1)));
+  }
+
+  // --- 5. Fill remaining weeks (up to 12) with evergreen planned content ---
   const evergreenQueue = [...EVERGREEN_ITEMS];
   while (calendar.length < 12 && evergreenQueue.length > 0) {
     const item = evergreenQueue.shift()!;

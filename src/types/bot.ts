@@ -29,11 +29,13 @@ export interface ContentCalendarItem {
   description: string;
   channels: Channel;
   fromSlack?: boolean; // true when derived from a Slack announcement
+  fromLinear?: boolean; // true when derived from a Linear ticket
 }
 
 export interface Bot {
   id: string;
   name: string;
+  role?: string;
   description: string;
   status: BotStatus;
   lastRun: string | null;

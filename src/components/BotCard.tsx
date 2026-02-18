@@ -28,6 +28,9 @@ export default function BotCard({ bot, onRun }: BotCardProps) {
           </span>
           <div>
             <h2 className="text-sm font-semibold text-white">{bot.name}</h2>
+            {bot.role && (
+              <p className="text-xs text-indigo-400 mt-0.5">{bot.role}</p>
+            )}
             {bot.lastRun && (
               <p className="text-xs text-zinc-500 mt-0.5">
                 Last run: {bot.lastRun}

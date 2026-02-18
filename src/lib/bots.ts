@@ -4,6 +4,7 @@ export const BOT_REGISTRY: Record<BotId, Bot> = {
   "content-strategist": {
     id: "content-strategist",
     name: "Nova",
+    role: "Content Strategist",
     description:
       "Analyzes market trends and Web3 loyalty data to generate content briefs and campaign strategies for Snag Solutions.",
     status: "idle",
