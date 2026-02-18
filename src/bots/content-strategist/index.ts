@@ -10,6 +10,7 @@
 
 import { ContentCalendarItem, Channel } from "@/types/bot";
 import { fetchLinearSignals, LinearSignal } from "@/lib/linear";
+import { findChannelId, fetchApprovedAnnouncements } from "@/lib/slack";
 
 function addWeeks(baseDate: Date, weeks: number): string {
   const d = new Date(baseDate);
@@ -136,6 +137,22 @@ export type ContentBrief = ContentCalendarItem;
 export async function runContentStrategist(): Promise<ContentCalendarItem[]> {
   const today = new Date();
   const calendar: ContentCalendarItem[] = [];
+
+  // --- 0. Pull Nova-approved partner announcements from #bot_announcements ---
+  // These are queued by Nova's Slack workflow and take priority in the calendar.
+  try {
+    const channelId = await findChannelId("bot_announcements");
+    if (channelId) {
+      const approved = await fetchApprovedAnnouncements(channelId);
+      // Slot approved announcements first (up to 3, newest last in Slack = first in slice)
+      for (const item of approved.slice(0, 3)) {
+        const week = calendar.length + 1;
+        calendar.push({ ...item, week, date: addWeeks(today, week - 1) });
+      }
+    }
+  } catch {
+    // Slack unreachable or not configured — continue without
+  }
 
   // --- 1. Pull tickets and epics from Linear ---
   let linearSignals: LinearSignal[] = [];
