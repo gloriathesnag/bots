@@ -59,7 +59,10 @@ export async function fetchAnnouncementSignals(): Promise<SlackSignal[]> {
     );
   }
 
-  const client = new WebClient(token);
+  const client = new WebClient(token, {
+    retryConfig: { retries: 0 },
+    timeout: 8000,
+  });
 
   // Fetch the last 90 days of messages
   const oldest = String(Math.floor(Date.now() / 1000) - 90 * 24 * 60 * 60);
