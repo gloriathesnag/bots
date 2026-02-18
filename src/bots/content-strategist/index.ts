@@ -2,7 +2,6 @@
  * Nova — Content Strategist Bot
  *
  * Responsibilities:
- * - Read recent product and partner announcements from Slack #announcements
  * - Read upcoming and completed tickets/epics from Linear
  * - Generate a 12-week content calendar that prioritises real launch signals
  * - Fill remaining weeks with evergreen thought-leadership and campaign content
@@ -10,7 +9,6 @@
  */
 
 import { ContentCalendarItem, Channel } from "@/types/bot";
-import { fetchAnnouncementSignals, SlackSignal } from "@/lib/slack";
 import { fetchLinearSignals, LinearSignal } from "@/lib/linear";
 
 function addWeeks(baseDate: Date, weeks: number): string {
@@ -19,13 +17,7 @@ function addWeeks(baseDate: Date, weeks: number): string {
   return d.toISOString().slice(0, 10);
 }
 
-/** Trim Slack message text to a usable headline (first sentence / 80 chars). */
-function toHeadline(text: string): string {
-  const first = text.split(/[\n.!?]/)[0].trim();
-  return first.length > 80 ? first.slice(0, 77) + "…" : first;
-}
-
-function channelForType(type: SlackSignal["type"] | LinearSignal["type"]): Channel {
+function channelForType(type: LinearSignal["type"]): Channel {
   return type === "partner-launch" ? "All channels" : "Email + X";
 }
 
@@ -142,18 +134,7 @@ export async function runContentStrategist(): Promise<ContentCalendarItem[]> {
   const today = new Date();
   const calendar: ContentCalendarItem[] = [];
 
-  // --- 1. Pull real signals from Slack #announcements ---
-  let slackSignals: SlackSignal[] = [];
-  try {
-    slackSignals = await fetchAnnouncementSignals();
-    // Cap at 3 so Slack signals share the front of the calendar with Linear
-    slackSignals = slackSignals.slice(0, 3);
-  } catch {
-    // If Slack is unreachable (e.g. missing env vars in dev), continue without
-    slackSignals = [];
-  }
-
-  // --- 2. Pull tickets and epics from Linear ---
+  // --- 1. Pull tickets and epics from Linear ---
   let linearSignals: LinearSignal[] = [];
   try {
     const all = await fetchLinearSignals();
@@ -166,27 +147,13 @@ export async function runContentStrategist(): Promise<ContentCalendarItem[]> {
     linearSignals = [];
   }
 
-  // --- 3. Slot Slack-derived items first ---
-  for (const signal of slackSignals) {
-    const week = calendar.length + 1;
-    calendar.push({
-      week,
-      date: addWeeks(today, week - 1),
-      title: toHeadline(signal.text),
-      type: signal.type,
-      description: `Content inspired by the ${signal.date} announcement in #announcements. Expand with product context and customer angle.`,
-      channels: channelForType(signal.type),
-      fromSlack: true,
-    });
-  }
-
-  // --- 4. Slot Linear tickets into the next available weeks ---
+  // --- 2. Slot Linear tickets into the first available weeks ---
   for (const signal of linearSignals) {
     const week = calendar.length + 1;
     calendar.push(linearItemToCalendarEntry(signal, week, addWeeks(today, week - 1)));
   }
 
-  // --- 5. Fill remaining weeks (up to 12) with evergreen planned content ---
+  // --- 3. Fill remaining weeks (up to 12) with evergreen planned content ---
   const evergreenQueue = [...EVERGREEN_ITEMS];
   while (calendar.length < 12 && evergreenQueue.length > 0) {
     const item = evergreenQueue.shift()!;

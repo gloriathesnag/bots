@@ -28,7 +28,6 @@ export interface ContentCalendarItem {
   type: ContentType;
   description: string;
   channels: Channel;
-  fromSlack?: boolean; // true when derived from a Slack announcement
   fromLinear?: boolean; // true when derived from a Linear ticket
 }
 
