@@ -146,7 +146,29 @@ export async function findUserIdByName(name: string): Promise<string | undefined
     return id;
   }
 
+  // Log a sample of real names to help diagnose mismatches
+  console.warn(`[Nova] No Slack user matched "${key}". Re-run a search to see names — add temporary logging if needed.`);
   return undefined;
+}
+
+/**
+ * Debug helper: logs all active member names so you can spot mismatches
+ * in Vercel logs. Call once from handleNewDealPost when lookup fails.
+ */
+export async function logAllMemberNames(): Promise<void> {
+  const slack = getSlackClient();
+  let cursor: string | undefined;
+  const names: string[] = [];
+  do {
+    const result = await slack.users.list({ limit: 200, cursor });
+    for (const member of (result.members ?? [])) {
+      if (member.deleted || member.is_bot || !member.id) continue;
+      const profile = member.profile as { real_name?: string; display_name?: string } | undefined;
+      names.push([member.real_name, profile?.real_name, profile?.display_name].filter(Boolean).join(" | "));
+    }
+    cursor = result.response_metadata?.next_cursor || undefined;
+  } while (cursor);
+  console.log("[Nova] Workspace members:", names.join("\n"));
 }
 
 // ---------------------------------------------------------------------------

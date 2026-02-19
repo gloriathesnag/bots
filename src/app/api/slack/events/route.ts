@@ -32,6 +32,7 @@ import {
   getBotUserId,
   getThreadMessages,
   findUserIdByName,
+  logAllMemberNames,
   NOVA_APPROVED_PREFIX,
   NOVA_HOLD_PREFIX,
   type SlackMessage,
@@ -201,6 +202,7 @@ async function handleNewDealPost(
         dealOwnerTag = `<@${ownerId}> `;
       } else {
         console.warn(`[Nova] Could not find Slack user for deal owner: "${ownerName}"`);
+        await logAllMemberNames();
       }
     } catch (err) {
       console.error(`[Nova] findUserIdByName failed for "${ownerName}" — is users:read scope granted?`, err);
