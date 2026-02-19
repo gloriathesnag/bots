@@ -181,11 +181,14 @@ async function handleNewDealPost(
       `*${companyName} Partnership* 🔍\n\nHi! I'd love to learn more before recommending whether to announce this. A few quick questions:\n\n1. Should this be publicly announced, or is it still in early stages?\n2. What was ${companyName} struggling with before partnering with Snag?\n3. Are there any early success metrics we can point to?\n\n_Reply here and I'll make a recommendation!_`;
   }
 
+  // Tag the deal owner so they get notified of Nova's questions
+  const dealOwnerTag = event.user ? `<@${event.user}> ` : "";
+
   const slack = getSlackClient();
   await slack.chat.postMessage({
     channel: channelId,
     thread_ts: event.ts,
-    text: reply,
+    text: `${dealOwnerTag}${reply}`,
   });
 }
 
