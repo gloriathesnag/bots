@@ -61,11 +61,12 @@ Step 1 — Use your training knowledge to assess *${companyName}*:
 
 Step 2 — Write a 1–2 sentence company overview that reflects what you actually know. If they are prominent (e.g. a major NFT brand, a big consumer name, a widely-followed Web3 project), say so clearly — this context matters for the announcement decision.
 
-Step 3 — Generate exactly 2–3 follow-up questions *tailored to this specific company*. Do NOT ask generic questions that would apply to any partner. Instead, ask questions that are only relevant because of what you know about *${companyName}*. For example:
-- If they have a large existing community, ask how Snag is integrating with it.
-- If they are early-stage or niche, ask whether the deal is ready to be public.
-- If there's an obvious story angle (their audience, a product launch, a milestone), ask about that specifically.
-- Always include one question about early results or metrics if not already covered in the post.
+Step 3 — Generate 2–3 follow-up questions using this rule:
+- Question 1 is ALWAYS: "Is this partnership ready to be publicly announced, or is it still too early?" — use your own wording but keep this intent.
+- Questions 2 (and optionally 3) must be *tailored to this specific company* based on what you know about them. Do NOT ask generic questions that could apply to any partner. Instead ask about things specific to *${companyName}*:
+  - If they have a large existing community, ask how Snag is integrating with it.
+  - If there's an obvious story angle (their audience, a product launch, a milestone), ask about that specifically.
+  - Ask about early results or metrics if not already covered in the post.
 
 Respond in Slack mrkdwn, using this structure exactly:
 
@@ -75,9 +76,9 @@ Respond in Slack mrkdwn, using this structure exactly:
 
 Before I add this to the Mission Control calendar, I have a couple of questions for you:
 
-1. [Tailored question one]
-2. [Tailored question two]
-3. [Tailored question three — omit if two strong questions are enough]
+1. [Always the "ready to announce?" question]
+2. [Company-specific question]
+3. [Second company-specific question — omit if one is enough]
 
 _Once you reply I'll make a recommendation on whether to announce this. 🚀_`,
       },
