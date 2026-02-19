@@ -29,6 +29,19 @@ export async function POST(
       "@/bots/content-strategist/index"
     );
     const calendar = await runContentStrategist();
+
+    // Sync the freshly generated calendar to Notion.
+    // Runs after we have the full ordered list so week numbers are correct.
+    // A Notion failure never breaks the dashboard response.
+    try {
+      const { isNotionConfigured, syncCalendarToNotion } = await import("@/lib/notion");
+      if (isNotionConfigured()) {
+        await syncCalendarToNotion(calendar);
+      }
+    } catch (err) {
+      console.warn("[Nova] Notion calendar sync failed:", err);
+    }
+
     return NextResponse.json(
       { botId: id, output: { calendar } },
       { status: 200 },

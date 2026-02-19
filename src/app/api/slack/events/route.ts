@@ -155,17 +155,27 @@ async function processSlackEvent(event: RawSlackEvent): Promise<void> {
   const novaBotId = await getBotId();
   if (novaBotId && event.bot_id === novaBotId) return;
 
-  // Confirm the message is in #bot_announcements
-  const channelId = await findChannelId("bot_announcements");
-  if (!channelId || event.channel !== channelId) return;
+  const botAnnouncementsId = await findChannelId("bot_announcements");
+  const isInBotAnnouncements =
+    botAnnouncementsId && event.channel === botAnnouncementsId;
 
-  const isThreadReply =
-    !!event.thread_ts && event.thread_ts !== event.ts;
+  if (isInBotAnnouncements) {
+    // Existing deal-post / thread-reply flow
+    const isThreadReply = !!event.thread_ts && event.thread_ts !== event.ts;
+    if (!isThreadReply) {
+      await handleNewDealPost(event, botAnnouncementsId);
+    } else {
+      await handleThreadReply(event, botAnnouncementsId);
+    }
+    return;
+  }
 
-  if (!isThreadReply) {
-    await handleNewDealPost(event, channelId);
-  } else {
-    await handleThreadReply(event, channelId);
+  // Any other channel — act only when Nova is directly @mentioned (calendar commands)
+  const botUserId = await getBotUserId();
+  const mentionsNova =
+    botUserId && (event.text ?? "").includes(`<@${botUserId}>`);
+  if (mentionsNova && event.channel && event.ts) {
+    await handleCalendarCommand(event.channel, event.ts, event.text ?? "");
   }
 }
 
@@ -352,6 +362,25 @@ async function handleThreadReply(
       ],
     });
 
+    // Push the approved item to Notion immediately so the calendar is live
+    // without waiting for someone to click "Run Bot".
+    try {
+      const { isNotionConfigured, upsertCalendarItem } = await import("@/lib/notion");
+      if (isNotionConfigured()) {
+        await upsertCalendarItem({
+          week: 0,
+          date: new Date().toISOString().slice(0, 10),
+          title: decision.title,
+          type: "partner-launch",
+          description: decision.description,
+          channels: normaliseChannel(decision.channels),
+          fromLinear: false,
+        });
+      }
+    } catch (err) {
+      console.warn("[Nova] Notion upsert after approval failed:", err);
+    }
+
   } else {
     await slack.chat.postMessage({
       channel: channelId,
@@ -368,4 +397,102 @@ async function handleThreadReply(
       ],
     });
   }
+}
+
+// ---------------------------------------------------------------------------
+// Handler 3 — Calendar command (Nova @mentioned outside #bot_announcements)
+// ---------------------------------------------------------------------------
+
+async function handleCalendarCommand(
+  channelId: string,
+  ts: string,
+  rawText: string,
+): Promise<void> {
+  const slack = getSlackClient();
+
+  // Fetch current Notion calendar so Nova has context for relative references
+  // like "move the Acme post to next week".
+  let calendar: ContentCalendarItem[] = [];
+  try {
+    const { isNotionConfigured, fetchNotionCalendar } = await import("@/lib/notion");
+    if (isNotionConfigured()) {
+      calendar = await fetchNotionCalendar();
+    } else {
+      await slack.chat.postMessage({
+        channel: channelId,
+        thread_ts: ts,
+        text: "⚠️ Notion isn't configured yet — please ask your admin to add `NOTION_API_KEY` and `NOTION_DATABASE_ID` to the environment variables.",
+      });
+      return;
+    }
+  } catch (err) {
+    console.warn("[Nova] Could not fetch Notion calendar:", err);
+  }
+
+  // Strip @mention tags so Claude sees clean natural language
+  const cleanText = rawText.replace(/<@[A-Z0-9]+>/g, "").trim();
+
+  let action;
+  try {
+    action = await parseCalendarCommand(cleanText, calendar);
+  } catch (err) {
+    console.error("[Nova] parseCalendarCommand failed:", err);
+    await slack.chat.postMessage({
+      channel: channelId,
+      thread_ts: ts,
+      text: "⚠️ I hit a snag trying to understand that. Could you try rephrasing?",
+    });
+    return;
+  }
+
+  // Execute the action against Notion
+  if (action.type !== "unknown") {
+    try {
+      const notion = await import("@/lib/notion");
+
+      if (
+        action.type === "reschedule" &&
+        action.targetTitle &&
+        action.newWeek !== undefined &&
+        action.newDate
+      ) {
+        await notion.rescheduleCalendarItem(
+          action.targetTitle,
+          action.newWeek,
+          action.newDate,
+        );
+      } else if (action.type === "remove" && action.targetTitle) {
+        await notion.removeCalendarItemByTitle(action.targetTitle);
+      } else if (
+        action.type === "add" &&
+        action.newEntry &&
+        action.newWeek !== undefined &&
+        action.newDate
+      ) {
+        await notion.upsertCalendarItem({
+          week: action.newWeek,
+          date: action.newDate,
+          title: action.newEntry.title,
+          type: action.newEntry.type as ContentCalendarItem["type"],
+          channels: normaliseChannel(action.newEntry.channels),
+          description: action.newEntry.description,
+          fromLinear: false,
+        });
+      }
+    } catch (err) {
+      console.error("[Nova] Notion calendar update failed:", err);
+      await slack.chat.postMessage({
+        channel: channelId,
+        thread_ts: ts,
+        text: "⚠️ I understood your request but couldn't update Notion. Check the `NOTION_API_KEY` and `NOTION_DATABASE_ID` env vars.",
+      });
+      return;
+    }
+  }
+
+  await slack.chat.postMessage({
+    channel: channelId,
+    thread_ts: ts,
+    text: action.slackReply,
+  });
 }
