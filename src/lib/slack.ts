@@ -146,8 +146,30 @@ export async function findUserIdByName(name: string): Promise<string | undefined
     return id;
   }
 
-  // Log a sample of real names to help diagnose mismatches
-  console.warn(`[Nova] No Slack user matched "${key}". Re-run a search to see names — add temporary logging if needed.`);
+  // Last resort: match on first name only (e.g. "Gloria Gerngross" → "Gloria")
+  const firstName = key.split(/\s+/)[0];
+  if (firstName) {
+    const slack2 = getSlackClient();
+    let cursor2: string | undefined;
+    do {
+      const result2 = await slack2.users.list({ limit: 200, cursor: cursor2 });
+      for (const member of (result2.members ?? [])) {
+        if (member.deleted || member.is_bot || !member.id) continue;
+        const profile = member.profile as { real_name?: string; display_name?: string } | undefined;
+        const names = [
+          member.real_name ?? "",
+          profile?.real_name ?? "",
+          profile?.display_name ?? "",
+        ].map((n) => n.toLowerCase().trim()).filter(Boolean);
+        if (names.some((n) => n.startsWith(firstName))) {
+          userIdByNameCache.set(key, member.id);
+          return member.id;
+        }
+      }
+      cursor2 = result2.response_metadata?.next_cursor || undefined;
+    } while (cursor2);
+  }
+
   return undefined;
 }
 
