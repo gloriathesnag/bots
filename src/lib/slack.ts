@@ -74,6 +74,46 @@ export async function getBotUserId(): Promise<string | undefined> {
 }
 
 // ---------------------------------------------------------------------------
+// User lookup
+// ---------------------------------------------------------------------------
+
+/** Cache: lowercased real name → Slack user ID */
+const userIdByNameCache = new Map<string, string>();
+
+/**
+ * Finds a Slack user ID by their real name (case-insensitive).
+ * Paginates through users.list so it works on large workspaces.
+ * Returns undefined if no match is found.
+ */
+export async function findUserIdByName(name: string): Promise<string | undefined> {
+  const key = name.toLowerCase().trim();
+  const cached = userIdByNameCache.get(key);
+  if (cached) return cached;
+
+  const slack = getSlackClient();
+  let cursor: string | undefined;
+
+  do {
+    const result = await slack.users.list({ limit: 200, cursor });
+    for (const member of (result.members ?? [])) {
+      if (member.deleted || member.is_bot) continue;
+      const realName = (
+        member.real_name ??
+        (member.profile as { real_name?: string } | undefined)?.real_name ??
+        ""
+      ).toLowerCase().trim();
+      if (realName === key && member.id) {
+        userIdByNameCache.set(key, member.id);
+        return member.id;
+      }
+    }
+    cursor = result.response_metadata?.next_cursor || undefined;
+  } while (cursor);
+
+  return undefined;
+}
+
+// ---------------------------------------------------------------------------
 // Messaging
 // ---------------------------------------------------------------------------
 

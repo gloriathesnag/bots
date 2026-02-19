@@ -29,6 +29,7 @@ import {
   findChannelId,
   getBotUserId,
   getThreadMessages,
+  findUserIdByName,
   NOVA_APPROVED_PREFIX,
   NOVA_HOLD_PREFIX,
   type SlackMessage,
@@ -181,8 +182,14 @@ async function handleNewDealPost(
       `*${companyName} Partnership* 🔍\n\nHi! I'd love to learn more before recommending whether to announce this. A few quick questions:\n\n1. Should this be publicly announced, or is it still in early stages?\n2. What was ${companyName} struggling with before partnering with Snag?\n3. Are there any early success metrics we can point to?\n\n_Reply here and I'll make a recommendation!_`;
   }
 
-  // Tag the deal owner so they get notified of Nova's questions
-  const dealOwnerTag = event.user ? `<@${event.user}> ` : "";
+  // Look up the deal owner from the Zapier post and tag them
+  let dealOwnerTag = "";
+  const ownerMatch = text.match(/deal\s*owner\s*:\s*([^\n]+)/i);
+  if (ownerMatch) {
+    const ownerName = ownerMatch[1].trim();
+    const ownerId = await findUserIdByName(ownerName);
+    if (ownerId) dealOwnerTag = `<@${ownerId}> `;
+  }
 
   const slack = getSlackClient();
   await slack.chat.postMessage({
