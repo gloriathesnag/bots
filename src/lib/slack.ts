@@ -14,7 +14,7 @@ let _client: WebClient | undefined;
 export function getSlackClient(): WebClient {
   if (!_client) {
     _client = new WebClient(process.env.SLACK_BOT_TOKEN, {
-      timeout: 10_000,
+      timeout: 30_000,
     });
   }
   return _client;
