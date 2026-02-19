@@ -279,10 +279,19 @@ async function handleThreadReply(
     decision = await decideAnnouncement(companyName, threadContext);
   } catch (err) {
     console.error("[Nova] Anthropic decision call failed:", err);
+    const errObj = err as { status?: number; error?: { type?: string; message?: string } };
+    let errMsg = "⚠️ I couldn't process your response — the AI service is unavailable. Please try again shortly or tag me again when ready.";
+    if (errObj?.error?.message?.toLowerCase().includes("credit balance")) {
+      errMsg = "⚠️ I'm out of credits on the Anthropic API and can't process your response right now. Please ask your admin to top up the account at console.anthropic.com → Plans & Billing, then tag me again.";
+    } else if (errObj?.status === 401) {
+      errMsg = "⚠️ The Anthropic API key is invalid or missing. Please ask your admin to check the `ANTHROPIC_API_KEY` environment variable in Vercel, then tag me again.";
+    } else if (errObj?.status === 429) {
+      errMsg = "⚠️ The Anthropic API rate limit was hit. Please wait a minute and tag me again.";
+    }
     await slack.chat.postMessage({
       channel: channelId,
       thread_ts,
-      text: "⚠️ I hit a snag processing your response (AI service unavailable). Please try again shortly or tag me again when ready.",
+      text: errMsg,
     });
     return;
   }
