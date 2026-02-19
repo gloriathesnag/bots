@@ -1,7 +1,7 @@
 /**
  * Anthropic AI functions for Nova
  *
- * Provides two capabilities:
+ * Provides three capabilities:
  *   1. researchPartnerAndGenerateQuestions — given a company name and the raw
  *      Slack deal post, returns a Slack-formatted string with a brief company
  *      overview and 2-3 follow-up questions for the sales rep.
@@ -9,9 +9,14 @@
  *   2. decideAnnouncement — given the full thread context (original post +
  *      Nova's questions + rep's answers), decides whether the partnership
  *      warrants a public announcement and returns structured metadata.
+ *
+ *   3. parseCalendarCommand — interprets a natural-language Slack message into
+ *      a structured action (reschedule / remove / add / unknown) that Nova
+ *      can execute against the Notion calendar.
  */
 
 import Anthropic from "@anthropic-ai/sdk";
+import type { ContentCalendarItem } from "@/types/bot";
 
 let _client: Anthropic | undefined;
 
@@ -172,4 +177,116 @@ function fallbackDecision(reason: string): AnnouncementDecision {
     channels: "",
     description: "",
   };
+}
+
+// ---------------------------------------------------------------------------
+// Calendar command parsing
+// ---------------------------------------------------------------------------
+
+export interface CalendarAction {
+  /** What Nova should do. */
+  type: "reschedule" | "remove" | "add" | "unknown";
+  /** Title (or partial title) of the entry to act on (reschedule / remove). */
+  targetTitle?: string;
+  /** New week number (reschedule / add). */
+  newWeek?: number;
+  /** New date in YYYY-MM-DD format (reschedule / add). */
+  newDate?: string;
+  /** Full entry details when adding a new item. */
+  newEntry?: {
+    title: string;
+    type: string;
+    channels: string;
+    description: string;
+  };
+  /** Message Nova posts back to Slack confirming the action (or explaining why she can't). */
+  slackReply: string;
+}
+
+/**
+ * Interprets a natural-language Slack message directed at Nova and returns
+ * a structured calendar action to execute against Notion.
+ *
+ * @param userMessage  The raw text the user sent (with @Nova mention stripped).
+ * @param calendar     Current state of the Notion calendar for context.
+ * @param baseDate     ISO date of week 1 (defaults to today).
+ */
+export async function parseCalendarCommand(
+  userMessage: string,
+  calendar: ContentCalendarItem[],
+  baseDate?: string,
+): Promise<CalendarAction> {
+  const client = getClient();
+  const today = baseDate ?? new Date().toISOString().slice(0, 10);
+
+  const calendarSummary = calendar.length
+    ? calendar
+        .map(
+          (i) =>
+            `  Week ${i.week} (${i.date}): "${i.title}" [${i.type}]`,
+        )
+        .join("\n")
+    : "  (calendar is empty)";
+
+  const msg = await client.messages.create({
+    model: "claude-sonnet-4-5-20250929",
+    max_tokens: 400,
+    messages: [
+      {
+        role: "user",
+        content: `You are Nova, an AI content strategist for Snag Solutions. You manage a 12-week content calendar stored in Notion.
+
+Today is ${today}. Week 1 starts on ${today}. Each subsequent week is 7 days later.
+
+Current calendar:
+${calendarSummary}
+
+A team member sent you this Slack message:
+"${userMessage}"
+
+Parse their request and respond with **only** a valid JSON object (no markdown):
+
+{
+  "type": "reschedule" | "remove" | "add" | "unknown",
+  "targetTitle": "exact or partial title of entry to act on (omit for add/unknown)",
+  "newWeek": 3,
+  "newDate": "YYYY-MM-DD",
+  "newEntry": {
+    "title": "...",
+    "type": "product-launch" | "partner-launch" | "thought-leadership" | "other",
+    "channels": "All channels" | "Email + LinkedIn" | "Email + X" | "X + LinkedIn" | "Email only" | "X only" | "LinkedIn only",
+    "description": "1-2 sentence description"
+  },
+  "slackReply": "Friendly 1-sentence confirmation of what you did, or a clear explanation if you couldn't understand the request."
+}
+
+Rules:
+- For "reschedule": set targetTitle, newWeek, and newDate. Compute newDate by adding (newWeek - 1) * 7 days to ${today}.
+- For "remove": set only targetTitle. slackReply should confirm deletion.
+- For "add": set newWeek, newDate, and newEntry. Leave targetTitle empty.
+- For "unknown": only set slackReply asking for clarification.
+- targetTitle should match the most likely calendar entry (partial/fuzzy match is fine).
+- Always fill slackReply — it is posted directly to Slack.`,
+      },
+    ],
+  });
+
+  const block = msg.content[0];
+  if (block.type !== "text") {
+    return unknownAction("I had trouble understanding that — could you rephrase?");
+  }
+
+  try {
+    const cleaned = block.text
+      .replace(/^```(?:json)?\s*/i, "")
+      .replace(/\s*```$/i, "")
+      .trim();
+    return JSON.parse(cleaned) as CalendarAction;
+  } catch {
+    return unknownAction("I had trouble understanding that — could you rephrase?");
+  }
+}
+
+function unknownAction(reply: string): CalendarAction {
+  return { type: "unknown", slackReply: reply };
 }

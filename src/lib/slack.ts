@@ -288,7 +288,7 @@ export async function fetchApprovedAnnouncements(
  * Maps AI-generated channel strings to the canonical Channel union type.
  * Falls back to "All channels" if unrecognised.
  */
-function normaliseChannel(raw: string): ContentCalendarItem["channels"] {
+export function normaliseChannel(raw: string): ContentCalendarItem["channels"] {
   const map: Record<string, ContentCalendarItem["channels"]> = {
     "all channels": "All channels",
     "email + linkedin": "Email + LinkedIn",

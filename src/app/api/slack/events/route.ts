@@ -33,6 +33,7 @@ import {
   getThreadMessages,
   findUserIdByName,
   logAllMemberNames,
+  normaliseChannel,
   NOVA_APPROVED_PREFIX,
   NOVA_HOLD_PREFIX,
   type SlackMessage,
@@ -41,7 +42,9 @@ import {
 import {
   researchPartnerAndGenerateQuestions,
   decideAnnouncement,
+  parseCalendarCommand,
 } from "@/lib/anthropic";
+import type { ContentCalendarItem } from "@/types/bot";
 
 // ---------------------------------------------------------------------------
 // Request signature verification (optional but recommended)
