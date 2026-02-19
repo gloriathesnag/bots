@@ -305,10 +305,14 @@ async function handleThreadReply(
       approvedAt: new Date().toISOString(),
     };
 
-    // Human-readable blocks for Slack
+    // Human-readable blocks for Slack.
+    // reply_broadcast: true is critical — it surfaces the message in the
+    // main channel timeline so conversations.history() can find the
+    // nova:approved: payload when generating the content calendar.
     await slack.chat.postMessage({
       channel: channelId,
       thread_ts,
+      reply_broadcast: true,
       // `text` is used for push notifications and—crucially—as our
       // machine-readable store that fetchApprovedAnnouncements() parses.
       text: `${NOVA_APPROVED_PREFIX}${JSON.stringify(payload)}`,
