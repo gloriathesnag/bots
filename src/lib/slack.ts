@@ -63,6 +63,7 @@ export async function findChannelId(name: string): Promise<string | undefined> {
 // ---------------------------------------------------------------------------
 
 let _botUserId: string | undefined;
+let _botId: string | undefined;
 
 /** Returns the bot's own Slack user ID (cached after first call). */
 export async function getBotUserId(): Promise<string | undefined> {
@@ -70,7 +71,19 @@ export async function getBotUserId(): Promise<string | undefined> {
   const slack = getSlackClient();
   const result = await slack.auth.test();
   _botUserId = result.user_id as string | undefined;
+  _botId = result.bot_id as string | undefined;
   return _botUserId;
+}
+
+/**
+ * Returns the bot's Slack bot_id (the B-prefixed ID that appears in
+ * event.bot_id). Used to distinguish Nova's own messages from other bots
+ * (e.g. Zapier) so we don't suppress incoming deal posts.
+ */
+export async function getBotId(): Promise<string | undefined> {
+  if (_botId) return _botId;
+  await getBotUserId(); // populates both _botUserId and _botId
+  return _botId;
 }
 
 // ---------------------------------------------------------------------------

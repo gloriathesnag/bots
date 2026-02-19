@@ -27,6 +27,7 @@ import crypto from "crypto";
 import {
   getSlackClient,
   findChannelId,
+  getBotId,
   getBotUserId,
   getThreadMessages,
   findUserIdByName,
@@ -139,9 +140,13 @@ interface RawSlackEvent {
 }
 
 async function processSlackEvent(event: RawSlackEvent): Promise<void> {
-  // Only handle normal user messages
+  // Only handle message events
   if (event.type !== "message") return;
-  if (event.bot_id || event.subtype === "bot_message") return;
+
+  // Skip Nova's own messages to prevent reply loops.
+  // Do NOT skip all bot messages — Zapier posts as a bot and must be processed.
+  const novaBotId = await getBotId();
+  if (novaBotId && event.bot_id === novaBotId) return;
 
   // Confirm the message is in #bot_announcements
   const channelId = await findChannelId("bot_announcements");
