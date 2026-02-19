@@ -18,7 +18,7 @@
  *                              message.groups    (private channels)
  *   • Invite the bot to #bot_announcements
  *   • Required OAuth scopes: channels:history, channels:read, groups:history,
- *                             groups:read, chat:write
+ *                             groups:read, chat:write, users:read
  *   • Optional (recommended): set SLACK_SIGNING_SECRET for request verification
  */
 
@@ -195,8 +195,16 @@ async function handleNewDealPost(
   const ownerMatch = text.match(/deal\s*owner\s*:\s*([^\n]+)/i);
   if (ownerMatch) {
     const ownerName = ownerMatch[1].trim();
-    const ownerId = await findUserIdByName(ownerName);
-    if (ownerId) dealOwnerTag = `<@${ownerId}> `;
+    try {
+      const ownerId = await findUserIdByName(ownerName);
+      if (ownerId) {
+        dealOwnerTag = `<@${ownerId}> `;
+      } else {
+        console.warn(`[Nova] Could not find Slack user for deal owner: "${ownerName}"`);
+      }
+    } catch (err) {
+      console.error(`[Nova] findUserIdByName failed for "${ownerName}" — is users:read scope granted?`, err);
+    }
   }
 
   const slack = getSlackClient();
