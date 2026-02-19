@@ -336,34 +336,6 @@ async function handleThreadReply(
       ],
     });
 
-    // Automatically surface the new item in #content-calendar
-    try {
-      const calendarChannelId = await findChannelId("content-calendar");
-      if (calendarChannelId) {
-        await slack.chat.postMessage({
-          channel: calendarChannelId,
-          text: `📅 New partner announcement added: ${payload.title}`,
-          blocks: [
-            {
-              type: "section",
-              text: {
-                type: "mrkdwn",
-                text: `📅 *New Partner Announcement Added*\n\n*${payload.title}*\n${payload.description}`,
-              },
-            },
-            {
-              type: "section",
-              fields: [
-                { type: "mrkdwn", text: `*Partner:*\n${payload.company}` },
-                { type: "mrkdwn", text: `*Channels:*\n${payload.channels}` },
-              ],
-            },
-          ],
-        });
-      }
-    } catch (calErr) {
-      console.error("[Nova] Failed to post to #content-calendar:", calErr);
-    }
   } else {
     await slack.chat.postMessage({
       channel: channelId,
