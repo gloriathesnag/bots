@@ -23,6 +23,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
+import { waitUntil } from "@vercel/functions";
 import crypto from "crypto";
 import {
   getSlackClient,
@@ -103,13 +104,15 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ challenge: body.challenge });
   }
 
-  // Acknowledge immediately — Slack requires a 200 within 3 s
-  // The async processing continues after the response is sent (Node.js keeps
-  // the serverless function alive until all pending promises resolve).
+  // Acknowledge immediately — Slack requires a 200 within 3 s.
+  // waitUntil() tells Vercel to keep the function instance alive until the
+  // promise settles, even though the response has already been sent.
   if (body.type === "event_callback" && body.event) {
     if (markProcessed(body.event_id)) {
-      processSlackEvent(body.event).catch((err) =>
-        console.error("[Nova/Slack] event processing error:", err),
+      waitUntil(
+        processSlackEvent(body.event).catch((err) =>
+          console.error("[Nova/Slack] event processing error:", err),
+        ),
       );
     }
   }
