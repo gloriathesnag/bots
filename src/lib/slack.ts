@@ -106,22 +106,45 @@ export async function findUserIdByName(name: string): Promise<string | undefined
   const slack = getSlackClient();
   let cursor: string | undefined;
 
+  // Collect all active human members first, then rank matches
+  type Candidate = { id: string; score: number };
+  const candidates: Candidate[] = [];
+
   do {
     const result = await slack.users.list({ limit: 200, cursor });
     for (const member of (result.members ?? [])) {
-      if (member.deleted || member.is_bot) continue;
-      const realName = (
-        member.real_name ??
-        (member.profile as { real_name?: string } | undefined)?.real_name ??
-        ""
-      ).toLowerCase().trim();
-      if (realName === key && member.id) {
+      if (member.deleted || member.is_bot || !member.id) continue;
+
+      const profile = member.profile as
+        | { real_name?: string; display_name?: string }
+        | undefined;
+
+      const names = [
+        member.real_name ?? "",
+        profile?.real_name ?? "",
+        profile?.display_name ?? "",
+      ].map((n) => n.toLowerCase().trim()).filter(Boolean);
+
+      // Exact match on any name field — highest priority
+      if (names.some((n) => n === key)) {
         userIdByNameCache.set(key, member.id);
         return member.id;
+      }
+
+      // Partial match: all words in `key` appear somewhere in a name field
+      const keyWords = key.split(/\s+/);
+      if (names.some((n) => keyWords.every((w) => n.includes(w)))) {
+        candidates.push({ id: member.id, score: 1 });
       }
     }
     cursor = result.response_metadata?.next_cursor || undefined;
   } while (cursor);
+
+  if (candidates.length > 0) {
+    const id = candidates[0].id;
+    userIdByNameCache.set(key, id);
+    return id;
+  }
 
   return undefined;
 }

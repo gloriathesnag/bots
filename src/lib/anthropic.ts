@@ -54,25 +54,30 @@ ${postText}
 
 Company identified: *${companyName}*
 
-Your job:
-1. Draw on your training knowledge to write a brief 1–2 sentence overview of ${companyName} (their industry, what they do, who they serve). If you're not familiar with them, briefly acknowledge that and focus on the questions.
-2. Generate exactly 2–3 sharp follow-up questions for the sales rep to help you decide whether this partnership is *worth publicly announcing*. Good question themes:
-   - Should this be announced at all? (e.g. is it a meaningful deal?)
-   - What was the partner struggling with before Snag?
-   - What success metrics or early results exist?
-   - Who is the partner's audience and does this extend Snag's reach?
+Step 1 — Use your training knowledge to assess *${companyName}*:
+- Are they well-known in Web3, crypto, gaming, or consumer brands?
+- What is their audience size, community strength, or cultural relevance?
+- Is this the kind of name that would generate buzz if Snag announced it?
+
+Step 2 — Write a 1–2 sentence company overview that reflects what you actually know. If they are prominent (e.g. a major NFT brand, a big consumer name, a widely-followed Web3 project), say so clearly — this context matters for the announcement decision.
+
+Step 3 — Generate exactly 2–3 follow-up questions *tailored to this specific company*. Do NOT ask generic questions that would apply to any partner. Instead, ask questions that are only relevant because of what you know about *${companyName}*. For example:
+- If they have a large existing community, ask how Snag is integrating with it.
+- If they are early-stage or niche, ask whether the deal is ready to be public.
+- If there's an obvious story angle (their audience, a product launch, a milestone), ask about that specifically.
+- Always include one question about early results or metrics if not already covered in the post.
 
 Respond in Slack mrkdwn, using this structure exactly:
 
 *${companyName} Partnership — Quick Review* 🔍
 
-[1–2 sentence company overview]
+[1–2 sentence company overview that reflects your actual knowledge of this company]
 
 Before I add this to the Mission Control calendar, I have a couple of questions for you:
 
-1. [Question one]
-2. [Question two]
-3. [Question three — omit if two strong questions are enough]
+1. [Tailored question one]
+2. [Tailored question two]
+3. [Tailored question three — omit if two strong questions are enough]
 
 _Once you reply I'll make a recommendation on whether to announce this. 🚀_`,
       },
