@@ -21,6 +21,7 @@ export default function BotCard({ bot, onRun, compact }: BotCardProps) {
   const isRunning = bot.status === "running";
 
   if (compact) {
+    const lastLog = bot.logs.length > 0 ? bot.logs[bot.logs.length - 1] : null;
     return (
       <div className="flex flex-col rounded-lg border border-zinc-800 bg-zinc-900 p-3 gap-2.5 hover:border-zinc-700 transition-colors">
         <div className="flex items-center gap-2">
@@ -42,6 +43,20 @@ export default function BotCard({ bot, onRun, compact }: BotCardProps) {
         >
           {isRunning ? "Running…" : "Run"}
         </button>
+        {lastLog && (
+          <p
+            className={`text-[10px] font-mono leading-tight truncate ${
+              lastLog.level === "error"
+                ? "text-red-400"
+                : lastLog.level === "warn"
+                  ? "text-yellow-400"
+                  : "text-zinc-500"
+            }`}
+            title={lastLog.message}
+          >
+            {lastLog.message}
+          </p>
+        )}
       </div>
     );
   }
