@@ -90,11 +90,12 @@ async function getExistingPagesByTitle(): Promise<Map<string, string>> {
   let cursor: string | undefined;
 
   do {
-    const res = await client.dataSources.query({
-      data_source_id: db,
-      start_cursor: cursor,
-      page_size: 100,
-    });
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const res = await (client as any).request({
+      path: `databases/${db}/query`,
+      method: "post",
+      body: { start_cursor: cursor, page_size: 100 },
+    }) as { results: any[]; has_more: boolean; next_cursor: string | null };
 
     for (const page of res.results) {
       if (page.object !== "page") continue;
@@ -187,11 +188,12 @@ export async function fetchNotionCalendar(): Promise<ContentCalendarItem[]> {
   let cursor: string | undefined;
 
   do {
-    const res = await client.dataSources.query({
-      data_source_id: db,
-      start_cursor: cursor,
-      page_size: 100,
-    });
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const res = await (client as any).request({
+      path: `databases/${db}/query`,
+      method: "post",
+      body: { start_cursor: cursor, page_size: 100 },
+    }) as { results: any[]; has_more: boolean; next_cursor: string | null };
 
     for (const page of res.results) {
       if (page.object !== "page") continue;
@@ -309,15 +311,15 @@ export async function fetchDraftCalendarItems(): Promise<
 
   do {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const res = await (client.dataSources.query as any)({
-      data_source_id: db,
-      start_cursor: cursor,
-      page_size: 100,
-      filter: {
-        property: "Status",
-        select: { equals: "Draft" },
+    const res = await (client as any).request({
+      path: `databases/${db}/query`,
+      method: "post",
+      body: {
+        start_cursor: cursor,
+        page_size: 100,
+        filter: { property: "Status", select: { equals: "Draft" } },
       },
-    });
+    }) as { results: any[]; has_more: boolean; next_cursor: string | null };
 
     for (const page of res.results) {
       if (page.object !== "page") continue;
