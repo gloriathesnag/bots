@@ -1,22 +1,29 @@
 /**
  * POST /api/slack/events
  *
- * Slack Events API webhook. Nova listens to #bot_announcements and:
+ * Slack Events API webhook. Handles two channels:
  *
+ * #bot_announcements — Nova's deal triage flow:
  *   1. New top-level message with a "Company:" field
  *      → researches the company, replies in-thread with 2-3 follow-up questions
- *
  *   2. Human reply in a thread where Nova previously asked questions
  *      → reads the full thread, decides if the launch should be announced,
  *        posts the decision, and (if yes) stores a structured payload that
  *        runContentStrategist() will pick up for the Mission Control calendar.
+ *
+ * #bot_communication — Dino's orchestration channel:
+ *   Human messages → Dino analyzes and routes to the right bot in-thread.
+ *   Bots and humans can share ideas; Dino assigns tasks accordingly.
+ *
+ * Any other channel — calendar commands:
+ *   @Nova mentions → Nova interprets as natural-language calendar commands.
  *
  * Setup checklist (one-time, in api.slack.com/apps):
  *   • Enable Event Subscriptions → Request URL:
  *       https://bots-rouge-psi.vercel.app/api/slack/events
  *   • Subscribe to bot events: message.channels  (public channels)
  *                              message.groups    (private channels)
- *   • Invite the bot to #bot_announcements
+ *   • Invite the bot to #bot_announcements and #bot_communication
  *   • Required OAuth scopes: channels:history, channels:read, groups:history,
  *                             groups:read, chat:write, users:read
  *   • Optional (recommended): set SLACK_SIGNING_SECRET for request verification
@@ -166,6 +173,27 @@ async function processSlackEvent(event: RawSlackEvent): Promise<void> {
       await handleNewDealPost(event, botAnnouncementsId);
     } else {
       await handleThreadReply(event, botAnnouncementsId);
+    }
+    return;
+  }
+
+  // #bot_communication — Dino routes all human messages to the right bot
+  const botCommunicationId = await findChannelId("bot_communication");
+  const isInBotCommunication =
+    botCommunicationId && event.channel === botCommunicationId;
+
+  if (isInBotCommunication) {
+    // Only respond to human messages — skip anything posted by a bot
+    if (!event.bot_id && event.user && event.text && event.ts) {
+      const { handleBotCommunicationMessage } = await import(
+        "@/bots/bot-leader/index"
+      );
+      await handleBotCommunicationMessage(
+        event.user,
+        event.text,
+        botCommunicationId,
+        event.ts,
+      );
     }
     return;
   }

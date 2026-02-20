@@ -43,6 +43,7 @@ export interface Bot {
 }
 
 export type BotId =
+  | "bot-leader"
   | "content-strategist"
   | "content-writer"
   | "hubspot-publisher"

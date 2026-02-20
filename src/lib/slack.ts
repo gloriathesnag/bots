@@ -285,6 +285,44 @@ export async function fetchApprovedAnnouncements(
 }
 
 /**
+ * Returns the display name (or real name) of a Slack user by their user ID.
+ * Falls back to "Someone" if the lookup fails.
+ */
+export async function getUserDisplayName(userId: string): Promise<string> {
+  try {
+    const slack = getSlackClient();
+    const result = await slack.users.info({ user: userId });
+    const profile = (
+      result.user as
+        | { profile?: { display_name?: string; real_name?: string } }
+        | undefined
+    )?.profile;
+    return profile?.display_name || profile?.real_name || "Someone";
+  } catch {
+    return "Someone";
+  }
+}
+
+/**
+ * Posts a message to #bot_communication on behalf of a bot.
+ * Logs a warning if the channel is not found (bot not invited).
+ */
+export async function postToBotCommunication(
+  botName: string,
+  message: string,
+): Promise<void> {
+  const channelId = await findChannelId("bot_communication");
+  if (!channelId) {
+    console.warn(
+      `[${botName}] #bot_communication channel not found — is the bot invited to that channel?`,
+    );
+    return;
+  }
+  const slack = getSlackClient();
+  await slack.chat.postMessage({ channel: channelId, text: message });
+}
+
+/**
  * Maps AI-generated channel strings to the canonical Channel union type.
  * Falls back to "All channels" if unrecognised.
  */

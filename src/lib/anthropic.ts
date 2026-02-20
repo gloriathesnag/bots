@@ -290,3 +290,141 @@ Rules:
 function unknownAction(reply: string): CalendarAction {
   return { type: "unknown", slackReply: reply };
 }
+
+// ---------------------------------------------------------------------------
+// Dino — Bot leader orchestration
+// ---------------------------------------------------------------------------
+
+const BOT_CAPABILITIES = `
+- *Nova* (content-strategist): Manages the 12-week content calendar, approves partnership announcements from #bot_announcements, pulls product signals from Linear, and handles calendar commands like rescheduling or adding entries.
+- *Content Writer* (content-writer): Transforms strategy briefs and calendar entries into polished blog posts, social media copy, and email narratives aligned with Snag's brand voice.
+- *HubSpot Publisher* (hubspot-publisher): Publishes approved, written content directly to HubSpot CMS — sets metadata, schedules posts, and manages workflow states.
+- *Performance Analyst* (performance-analyst): Pulls HubSpot analytics and on-chain engagement metrics to score content performance and surface optimisation insights.
+`.trim();
+
+export interface DinoRouting {
+  messageType: "task" | "idea" | "question" | "update" | "general";
+  assignedBot:
+    | "content-strategist"
+    | "content-writer"
+    | "hubspot-publisher"
+    | "performance-analyst"
+    | null;
+  assignedBotName: string | null;
+  response: string;
+}
+
+/**
+ * Analyzes a message posted in #bot_communication and returns Dino's routing
+ * decision: which bot to assign it to (if any) and what Dino should reply.
+ */
+export async function analyzeBotCommunicationMessage(
+  message: string,
+  senderName: string,
+  calendarSummary: string,
+): Promise<DinoRouting> {
+  const client = getClient();
+
+  const msg = await client.messages.create({
+    model: "claude-sonnet-4-5-20250929",
+    max_tokens: 500,
+    messages: [
+      {
+        role: "user",
+        content: `You are Dino, the bot leader and orchestrator for Snag Solutions' content bot team.
+
+Your team's capabilities:
+${BOT_CAPABILITIES}
+
+Current content calendar:
+${calendarSummary || "(calendar not available)"}
+
+A team member named "${senderName}" just posted in #bot_communication:
+"${message}"
+
+Analyze their message and respond with ONLY a valid JSON object (no markdown fences):
+
+{
+  "messageType": "task" | "idea" | "question" | "update" | "general",
+  "assignedBot": "content-strategist" | "content-writer" | "hubspot-publisher" | "performance-analyst" | null,
+  "assignedBotName": "Nova" | "Content Writer" | "HubSpot Publisher" | "Performance Analyst" | null,
+  "response": "What Dino posts back in #bot_communication. Use Slack mrkdwn. Be concise, direct, and action-oriented. If assigning a task to a bot, clearly state the bot's name and what they should do. If it's an idea or general comment, acknowledge it and note any relevant context or gaps."
+}
+
+Rules:
+- Assign to a bot only if the message clearly maps to that bot's capabilities
+- If the message is an idea or general discussion, set assignedBot to null and respond thoughtfully
+- If a requested bot is not yet implemented (Content Writer, HubSpot Publisher, Performance Analyst), mention that in your response but still assign it so the team knows who owns it
+- Always be helpful and keep the team informed`,
+      },
+    ],
+  });
+
+  const block = msg.content[0];
+  if (block.type !== "text") {
+    return {
+      messageType: "general",
+      assignedBot: null,
+      assignedBotName: null,
+      response: "Got it — I'll keep that in mind.",
+    };
+  }
+
+  try {
+    const cleaned = block.text
+      .replace(/^```(?:json)?\s*/i, "")
+      .replace(/\s*```$/i, "")
+      .trim();
+    return JSON.parse(cleaned) as DinoRouting;
+  } catch {
+    return {
+      messageType: "general",
+      assignedBot: null,
+      assignedBotName: null,
+      response: "Got it — I'll keep that in mind.",
+    };
+  }
+}
+
+/**
+ * Generates a team-wide status report for Dino to post in #bot_communication.
+ */
+export async function generateDinoStatusReport(
+  calendarSummary: string,
+  linearSummary: string,
+): Promise<string> {
+  const client = getClient();
+
+  const msg = await client.messages.create({
+    model: "claude-sonnet-4-5-20250929",
+    max_tokens: 600,
+    messages: [
+      {
+        role: "user",
+        content: `You are Dino, the bot leader for Snag Solutions' content bot team.
+
+Your team:
+${BOT_CAPABILITIES}
+
+Current content calendar:
+${calendarSummary || "(calendar not available)"}
+
+Recent Linear signals:
+${linearSummary || "(no Linear data available)"}
+
+Generate a concise, friendly status report to post in #bot_communication. Cover:
+- Quick snapshot of the content calendar (highlight any gaps or upcoming weeks without content)
+- Notable Linear items the team should know about
+- What each bot should be focused on right now
+- Any gaps or things missing that the team should address
+
+Use Slack mrkdwn with bold headers and bullet points. Start with "📊 *Team Status — Dino*". Keep it scannable.`,
+      },
+    ],
+  });
+
+  const block = msg.content[0];
+  return block.type === "text"
+    ? block.text
+    : "📊 *Team Status — Dino*\n\nAll systems running. I'll post a fuller update shortly.";
+}

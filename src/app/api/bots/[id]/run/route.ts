@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { BotId } from "@/types/bot";
 
 const VALID_BOT_IDS: BotId[] = [
+  "bot-leader",
   "content-strategist",
   "content-writer",
   "hubspot-publisher",
@@ -22,6 +23,12 @@ export async function POST(
 
   if (!VALID_BOT_IDS.includes(id as BotId)) {
     return NextResponse.json({ error: `Unknown bot: ${id}` }, { status: 404 });
+  }
+
+  if (id === "bot-leader") {
+    const { runBotLeader } = await import("@/bots/bot-leader/index");
+    const report = await runBotLeader();
+    return NextResponse.json({ botId: id, output: { report } }, { status: 200 });
   }
 
   if (id === "content-strategist") {

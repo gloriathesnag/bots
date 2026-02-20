@@ -1,6 +1,16 @@
 import { Bot, BotId } from "@/types/bot";
 
 export const BOT_REGISTRY: Record<BotId, Bot> = {
+  "bot-leader": {
+    id: "bot-leader",
+    name: "Dino",
+    role: "Bot Leader",
+    description:
+      "Orchestrates the entire bot team. Has full visibility across all bots, the content calendar, Linear, and Slack. Assigns tasks to the right bot, surfaces gaps, and posts team-wide status updates in #bot_communication.",
+    status: "idle",
+    lastRun: null,
+    logs: [],
+  },
   "content-strategist": {
     id: "content-strategist",
     name: "Nova",
@@ -41,6 +51,7 @@ export const BOT_REGISTRY: Record<BotId, Bot> = {
 };
 
 export const BOT_ORDER: BotId[] = [
+  "bot-leader",
   "content-strategist",
   "content-writer",
   "hubspot-publisher",
