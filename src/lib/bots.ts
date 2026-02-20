@@ -23,9 +23,10 @@ export const BOT_REGISTRY: Record<BotId, Bot> = {
   },
   "content-writer": {
     id: "content-writer",
-    name: "Content Writer",
+    name: "Piggy",
+    role: "Content Writer",
     description:
-      "Transforms strategy briefs into polished blog posts, social copy, and email narratives aligned with Snag's brand voice.",
+      "Conversational Web3 content writer for Snag Solutions. Triggered when a Notion calendar item is marked Draft. Writes the blog post first, then adapts to newsletter → X thread → LinkedIn — each waiting for explicit approval in #bot_communication before moving on.",
     status: "idle",
     lastRun: null,
     logs: [],

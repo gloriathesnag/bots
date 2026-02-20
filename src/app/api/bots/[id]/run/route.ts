@@ -55,6 +55,15 @@ export async function POST(
     );
   }
 
+  if (id === "content-writer") {
+    const { runContentWriter } = await import("@/bots/content-writer/index");
+    const summary = await runContentWriter();
+    return NextResponse.json(
+      { botId: id, output: { summary } },
+      { status: 200 },
+    );
+  }
+
   return NextResponse.json(
     {
       botId: id,

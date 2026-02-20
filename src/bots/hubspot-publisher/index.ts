@@ -10,7 +10,12 @@
  * TODO: implement using the @hubspot/api-client SDK with HUBSPOT_API_KEY env var
  */
 
-import { DraftContent } from "@/bots/content-writer";
+export interface DraftContent {
+  briefTitle: string;
+  blogPost: string;
+  socialCaption: string;
+  emailSnippet: string;
+}
 
 export interface PublishResult {
   hubspotPostId: string;

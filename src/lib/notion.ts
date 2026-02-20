@@ -22,6 +22,12 @@
 import { Client } from "@notionhq/client";
 import type { ContentCalendarItem } from "@/types/bot";
 
+/** A ContentCalendarItem that also carries the Notion page ID and Status. */
+export interface ContentCalendarItemWithId extends ContentCalendarItem {
+  notionPageId: string;
+  notionStatus?: string;
+}
+
 let _client: Client | undefined;
 
 function getClient(): Client {
@@ -277,4 +283,108 @@ export async function rescheduleCalendarItem(
   });
   void db; // getDatabaseId already validated
   return true;
+}
+
+// ---------------------------------------------------------------------------
+// Piggy (Content Writer) — Draft workflow helpers
+//
+// Requires these additional Notion database properties:
+//   Status       — Select  (options: Draft, Blog Pending Review,
+//                           Newsletter Pending Review, X Thread Pending Review,
+//                           LinkedIn Pending Review, Done)
+//   Content link — URL
+// ---------------------------------------------------------------------------
+
+/**
+ * Returns all calendar items whose Status property equals "Draft".
+ * Each item includes its Notion page ID so Piggy can update it later.
+ */
+export async function fetchDraftCalendarItems(): Promise<
+  ContentCalendarItemWithId[]
+> {
+  const client = getClient();
+  const db = getDatabaseId();
+  const items: ContentCalendarItemWithId[] = [];
+  let cursor: string | undefined;
+
+  do {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const res = await (client.dataSources.query as any)({
+      data_source_id: db,
+      start_cursor: cursor,
+      page_size: 100,
+      filter: {
+        property: "Status",
+        select: { equals: "Draft" },
+      },
+    });
+
+    for (const page of res.results) {
+      if (page.object !== "page") continue;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const props = (page as any).properties;
+
+      const title = (
+        (props?.Name?.title ?? []) as { plain_text: string }[]
+      )
+        .map((t) => t.plain_text)
+        .join("")
+        .trim();
+
+      if (!title) continue;
+
+      items.push({
+        notionPageId: page.id,
+        notionStatus: props?.Status?.select?.name ?? "Draft",
+        week: props?.Week?.number ?? 0,
+        date: props?.Date?.date?.start ?? "",
+        title,
+        type: props?.Type?.select?.name ?? "other",
+        description: (
+          (props?.Description?.rich_text ?? []) as { plain_text: string }[]
+        )
+          .map((t) => t.plain_text)
+          .join("")
+          .trim(),
+        channels: props?.Channels?.select?.name ?? "All channels",
+        fromLinear: props?.Source?.select?.name === "Linear",
+      });
+    }
+
+    cursor = res.has_more ? (res.next_cursor ?? undefined) : undefined;
+  } while (cursor);
+
+  return items;
+}
+
+/**
+ * Updates the Status select property on a Notion page.
+ * Valid values: "Draft" | "Blog Pending Review" | "Newsletter Pending Review"
+ *             | "X Thread Pending Review" | "LinkedIn Pending Review" | "Done"
+ */
+export async function updateCalendarItemStatus(
+  pageId: string,
+  status: string,
+): Promise<void> {
+  const client = getClient();
+  await client.pages.update({
+    page_id: pageId,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    properties: { Status: { select: { name: status } } } as any,
+  });
+}
+
+/**
+ * Sets the "Content link" URL property on a Notion page to the Google Doc URL.
+ */
+export async function updateCalendarItemContentLink(
+  pageId: string,
+  url: string,
+): Promise<void> {
+  const client = getClient();
+  await client.pages.update({
+    page_id: pageId,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    properties: { "Content link": { url } } as any,
+  });
 }

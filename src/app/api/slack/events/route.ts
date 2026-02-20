@@ -177,7 +177,7 @@ async function processSlackEvent(event: RawSlackEvent): Promise<void> {
     return;
   }
 
-  // #bot_communication — Dino routes all human messages to the right bot
+  // #bot_communication — Piggy approval check first, then Dino routing
   const botCommunicationId = await findChannelId("bot_communication");
   const isInBotCommunication =
     botCommunicationId && event.channel === botCommunicationId;
@@ -185,6 +185,19 @@ async function processSlackEvent(event: RawSlackEvent): Promise<void> {
   if (isInBotCommunication) {
     // Only respond to human messages — skip anything posted by a bot
     if (!event.bot_id && event.user && event.text && event.ts) {
+      // Check if this is a thread reply to a Piggy draft message
+      const isThreadReply =
+        !!event.thread_ts && event.thread_ts !== event.ts;
+
+      if (isThreadReply) {
+        const handled = await handlePiggyApproval(
+          event,
+          botCommunicationId,
+        );
+        if (handled) return;
+      }
+
+      // Fall through to Dino for all other messages
       const { handleBotCommunicationMessage } = await import(
         "@/bots/bot-leader/index"
       );
@@ -523,4 +536,74 @@ async function handleCalendarCommand(
     thread_ts: ts,
     text: action.slackReply,
   });
+}
+
+// ---------------------------------------------------------------------------
+// Handler 4 — Piggy (Content Writer) approval in #bot_communication
+// ---------------------------------------------------------------------------
+
+const APPROVAL_PATTERNS =
+  /^(approved?|✅|lgtm|looks good|go ahead|ship it|yes|👍|approve|confirmed?)[\s!.]*$/i;
+
+/**
+ * Checks if a thread reply is approving a Piggy draft. If so, advances the
+ * content pipeline to the next stage and returns true. Returns false if the
+ * message is unrelated to Piggy.
+ */
+async function handlePiggyApproval(
+  event: RawSlackEvent,
+  channelId: string,
+): Promise<boolean> {
+  const text = (event.text ?? "").trim();
+  if (!APPROVAL_PATTERNS.test(text)) return false;
+
+  // Fetch the thread parent to find the piggy:draft: prefix
+  const slack = getSlackClient();
+  let parentText = "";
+  try {
+    const result = await slack.conversations.replies({
+      channel: channelId,
+      ts: event.thread_ts!,
+      limit: 1,
+      oldest: event.thread_ts,
+    });
+    parentText = ((result.messages as SlackMessage[])?.[0]?.text) ?? "";
+  } catch (err) {
+    console.warn("[Piggy] Could not fetch thread parent:", err);
+    return false;
+  }
+
+  const { PIGGY_DRAFT_PREFIX } = await import("@/bots/content-writer/index");
+  if (!parentText.startsWith(PIGGY_DRAFT_PREFIX)) return false;
+
+  // Parse the payload
+  let payload;
+  try {
+    payload = JSON.parse(parentText.slice(PIGGY_DRAFT_PREFIX.length));
+  } catch {
+    return false;
+  }
+
+  // Acknowledge and advance
+  try {
+    await slack.chat.postMessage({
+      channel: channelId,
+      thread_ts: event.thread_ts,
+      text: `✅ Got it! Moving on to the next format now…`,
+    });
+
+    const { advancePiggyToNextStage } = await import(
+      "@/bots/content-writer/index"
+    );
+    await advancePiggyToNextStage(payload);
+  } catch (err) {
+    console.error("[Piggy] advancePiggyToNextStage failed:", err);
+    await slack.chat.postMessage({
+      channel: channelId,
+      thread_ts: event.thread_ts,
+      text: "⚠️ Piggy hit an error advancing to the next stage. Check the Vercel logs.",
+    });
+  }
+
+  return true;
 }
