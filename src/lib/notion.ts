@@ -84,8 +84,8 @@ async function getExistingPagesByTitle(): Promise<Map<string, string>> {
   let cursor: string | undefined;
 
   do {
-    const res = await client.databases.query({
-      database_id: db,
+    const res = await client.dataSources.query({
+      data_source_id: db,
       start_cursor: cursor,
       page_size: 100,
     });
@@ -181,8 +181,8 @@ export async function fetchNotionCalendar(): Promise<ContentCalendarItem[]> {
   let cursor: string | undefined;
 
   do {
-    const res = await client.databases.query({
-      database_id: db,
+    const res = await client.dataSources.query({
+      data_source_id: db,
       start_cursor: cursor,
       page_size: 100,
     });
