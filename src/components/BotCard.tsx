@@ -14,10 +14,37 @@ const BOT_ICONS: Record<string, string> = {
 interface BotCardProps {
   bot: Bot;
   onRun: (id: string) => void;
+  compact?: boolean;
 }
 
-export default function BotCard({ bot, onRun }: BotCardProps) {
+export default function BotCard({ bot, onRun, compact }: BotCardProps) {
   const isRunning = bot.status === "running";
+
+  if (compact) {
+    return (
+      <div className="flex flex-col rounded-lg border border-zinc-800 bg-zinc-900 p-3 gap-2.5 hover:border-zinc-700 transition-colors">
+        <div className="flex items-center gap-2">
+          <span className="text-lg" aria-hidden="true">
+            {BOT_ICONS[bot.id] ?? "🤖"}
+          </span>
+          <div className="min-w-0 flex-1">
+            <h2 className="text-xs font-semibold text-white truncate">{bot.name}</h2>
+            {bot.role && (
+              <p className="text-[10px] text-indigo-400 truncate">{bot.role}</p>
+            )}
+          </div>
+          <StatusBadge status={bot.status} />
+        </div>
+        <button
+          onClick={() => onRun(bot.id)}
+          disabled={isRunning}
+          className="w-full rounded-md bg-indigo-600 hover:bg-indigo-500 disabled:bg-zinc-700 disabled:text-zinc-500 disabled:cursor-not-allowed px-3 py-1 text-xs font-medium text-white transition-colors"
+        >
+          {isRunning ? "Running…" : "Run"}
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col rounded-xl border border-zinc-800 bg-zinc-900 p-5 gap-4 hover:border-zinc-600 transition-colors">

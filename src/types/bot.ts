@@ -48,3 +48,19 @@ export type BotId =
   | "content-writer"
   | "hubspot-publisher"
   | "performance-analyst";
+
+export type KanbanStatus =
+  | "unassigned"
+  | "assigned"
+  | "in-progress"
+  | "needs-review"
+  | "done";
+
+export interface Task {
+  id: string;
+  title: string;
+  description?: string;
+  status: KanbanStatus;
+  assignedTo?: BotId;
+  createdAt: string;
+}
