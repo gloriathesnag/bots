@@ -43,6 +43,39 @@ function getDatabaseId(): string {
   return id;
 }
 
+/**
+ * Query a Notion database using a direct fetch to the stable 2022-06-28 API.
+ * The @notionhq/client v5 SDK ships with Notion-Version: 2025-09-03 which may
+ * not be live yet; using fetch guarantees we hit the stable endpoint.
+ */
+async function notionQuery(
+  db: string,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  body: Record<string, unknown> = {},
+): Promise<{ results: any[]; has_more: boolean; next_cursor: string | null }> {
+  const key = process.env.NOTION_API_KEY;
+  if (!key) throw new Error("NOTION_API_KEY is not set");
+
+  const res = await fetch(`https://api.notion.com/v1/databases/${db}/query`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${key}`,
+      "Notion-Version": "2022-06-28",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(body),
+  });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(
+      `Notion query failed ${res.status}: ${JSON.stringify(err)}`,
+    );
+  }
+
+  return res.json();
+}
+
 /** Returns true when Notion env vars are present. */
 export function isNotionConfigured(): boolean {
   return !!(process.env.NOTION_API_KEY && process.env.NOTION_DATABASE_ID);
@@ -84,18 +117,14 @@ function itemToProperties(item: ContentCalendarItem): Record<string, any> {
 // ---------------------------------------------------------------------------
 
 async function getExistingPagesByTitle(): Promise<Map<string, string>> {
-  const client = getClient();
   const db = getDatabaseId();
   const map = new Map<string, string>();
   let cursor: string | undefined;
 
   do {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const res = await (client as any).request({
-      path: `databases/${db}/query`,
-      method: "post",
-      body: { start_cursor: cursor, page_size: 100 },
-    }) as { results: any[]; has_more: boolean; next_cursor: string | null };
+    const body: Record<string, unknown> = { page_size: 100 };
+    if (cursor) body.start_cursor = cursor;
+    const res = await notionQuery(db, body);
 
     for (const page of res.results) {
       if (page.object !== "page") continue;
@@ -182,18 +211,14 @@ export async function syncCalendarToNotion(
  * Used to give Nova context when handling Slack calendar commands.
  */
 export async function fetchNotionCalendar(): Promise<ContentCalendarItem[]> {
-  const client = getClient();
   const db = getDatabaseId();
   const items: ContentCalendarItem[] = [];
   let cursor: string | undefined;
 
   do {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const res = await (client as any).request({
-      path: `databases/${db}/query`,
-      method: "post",
-      body: { start_cursor: cursor, page_size: 100 },
-    }) as { results: any[]; has_more: boolean; next_cursor: string | null };
+    const body: Record<string, unknown> = { page_size: 100 };
+    if (cursor) body.start_cursor = cursor;
+    const res = await notionQuery(db, body);
 
     for (const page of res.results) {
       if (page.object !== "page") continue;
@@ -304,22 +329,17 @@ export async function rescheduleCalendarItem(
 export async function fetchDraftCalendarItems(): Promise<
   ContentCalendarItemWithId[]
 > {
-  const client = getClient();
   const db = getDatabaseId();
   const items: ContentCalendarItemWithId[] = [];
   let cursor: string | undefined;
 
   do {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const res = await (client as any).request({
-      path: `databases/${db}/query`,
-      method: "post",
-      body: {
-        start_cursor: cursor,
-        page_size: 100,
-        filter: { property: "Status", select: { equals: "Draft" } },
-      },
-    }) as { results: any[]; has_more: boolean; next_cursor: string | null };
+    const body: Record<string, unknown> = {
+      page_size: 100,
+      filter: { property: "Status", select: { equals: "Draft" } },
+    };
+    if (cursor) body.start_cursor = cursor;
+    const res = await notionQuery(db, body);
 
     for (const page of res.results) {
       if (page.object !== "page") continue;
