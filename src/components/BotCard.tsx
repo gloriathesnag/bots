@@ -4,6 +4,7 @@ import { Bot } from "@/types/bot";
 import StatusBadge from "@/components/StatusBadge";
 
 const BOT_ICONS: Record<string, string> = {
+  "bot-leader": "🦕",
   "content-strategist": "🧠",
   "content-writer": "✍️",
   "hubspot-publisher": "🚀",

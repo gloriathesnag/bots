@@ -68,6 +68,8 @@ export default function Dashboard() {
   );
 
   const orderedBots = BOT_ORDER.map((id) => bots[id]);
+  const dinoBot = bots["bot-leader"];
+  const workerBots = orderedBots.filter((b) => b.id !== "bot-leader");
   const contentCalendar = bots["content-strategist"].calendarOutput;
 
   return (
@@ -80,8 +82,22 @@ export default function Dashboard() {
           analysis.
         </p>
 
+        {/* Dino — Bot Leader */}
+        <div className="mb-5">
+          <p className="text-xs font-semibold uppercase tracking-widest text-amber-500 mb-3">
+            Bot Leader
+          </p>
+          <div className="rounded-xl border border-amber-500/30 bg-amber-950/20 p-1">
+            <BotCard bot={dinoBot} onRun={handleRun} />
+          </div>
+        </div>
+
+        {/* Worker bots */}
+        <p className="text-xs font-semibold uppercase tracking-widest text-zinc-500 mb-3">
+          Agent Team
+        </p>
         <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-4">
-          {orderedBots.map((bot) => (
+          {workerBots.map((bot) => (
             <BotCard key={bot.id} bot={bot} onRun={handleRun} />
           ))}
         </div>
