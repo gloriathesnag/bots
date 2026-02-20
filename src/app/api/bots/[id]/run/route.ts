@@ -39,18 +39,21 @@ export async function POST(
 
     // Sync the freshly generated calendar to Notion.
     // Runs after we have the full ordered list so week numbers are correct.
-    // A Notion failure never breaks the dashboard response.
+    let notionStatus = "skipped (NOTION_API_KEY or NOTION_DATABASE_ID not set)";
     try {
       const { isNotionConfigured, syncCalendarToNotion } = await import("@/lib/notion");
       if (isNotionConfigured()) {
         await syncCalendarToNotion(calendar);
+        notionStatus = `synced ${calendar.length} items`;
       }
     } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
       console.warn("[Nova] Notion calendar sync failed:", err);
+      notionStatus = `sync failed: ${msg}`;
     }
 
     return NextResponse.json(
-      { botId: id, output: { calendar } },
+      { botId: id, output: { calendar, notionStatus } },
       { status: 200 },
     );
   }

@@ -50,17 +50,20 @@ export default function Dashboard() {
         const res = await fetch(`/api/bots/${id}/run`, { method: "POST" });
         const data = await res.json();
 
-        appendLog(id, {
-          timestamp: now(),
-          level: "info",
-          message: "Execution complete.",
-        });
-
         const patch: Partial<Bot> = { status: "success" };
         if (data.output?.calendar) {
           patch.calendarOutput = data.output.calendar as ContentCalendarItem[];
         }
         updateBot(id, patch);
+
+        // Surface any extra status detail from the API response
+        const detail: string =
+          data.output?.notionStatus
+            ? `Notion: ${data.output.notionStatus}`
+            : data.output?.summary
+            ? data.output.summary
+            : "Execution complete.";
+        appendLog(id, { timestamp: now(), level: "info", message: detail });
       } catch (err) {
         appendLog(id, {
           timestamp: now(),
