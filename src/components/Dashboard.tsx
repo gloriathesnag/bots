@@ -6,6 +6,9 @@ import { BOT_REGISTRY, BOT_ORDER } from "@/lib/bots";
 import BotCard from "@/components/BotCard";
 import MissionControlHeader from "@/components/MissionControlHeader";
 import KanbanBoard from "@/components/KanbanBoard";
+import ContentCalendar from "@/components/ContentCalendar";
+
+type MainView = "tasks" | "calendar";
 
 function now(): string {
   return new Date().toISOString().replace("T", " ").slice(0, 19);
@@ -21,6 +24,7 @@ export default function Dashboard() {
   }));
 
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [view, setView] = useState<MainView>("tasks");
 
   const updateBot = useCallback(
     (id: string, patch: Partial<Bot>) =>
@@ -53,6 +57,7 @@ export default function Dashboard() {
         const patch: Partial<Bot> = { status: "success" };
         if (data.output?.calendar) {
           patch.calendarOutput = data.output.calendar as ContentCalendarItem[];
+          setView("calendar");
         }
         updateBot(id, patch);
 
@@ -100,6 +105,7 @@ export default function Dashboard() {
   const orderedBots = BOT_ORDER.map((id) => bots[id]);
   const dinoBot = bots["bot-leader"];
   const workerBots = orderedBots.filter((b) => b.id !== "bot-leader");
+  const novaCalendar = bots["content-strategist"].calendarOutput ?? [];
 
   return (
     <div className="h-screen bg-zinc-950 text-white flex flex-col overflow-hidden">
@@ -133,22 +139,63 @@ export default function Dashboard() {
           </div>
         </aside>
 
-        {/* ── Main: Kanban ─────────────────────────────────────── */}
+        {/* ── Main panel ───────────────────────────────────────── */}
         <main className="flex-1 flex flex-col min-h-0 overflow-hidden p-6">
-          <div className="mb-5 shrink-0">
-            <h2 className="text-lg font-bold text-white">Task Board</h2>
-            <p className="text-xs text-zinc-500 mt-0.5">
-              Dino assigns work to the team — track every task from idea to done.
-            </p>
+          {/* Tab bar */}
+          <div className="mb-5 shrink-0 flex items-end gap-6 border-b border-zinc-800 pb-0">
+            <button
+              onClick={() => setView("tasks")}
+              className={`pb-3 text-sm font-semibold border-b-2 transition-colors ${
+                view === "tasks"
+                  ? "border-indigo-500 text-white"
+                  : "border-transparent text-zinc-500 hover:text-zinc-300"
+              }`}
+            >
+              Task Board
+            </button>
+            <button
+              onClick={() => setView("calendar")}
+              className={`pb-3 text-sm font-semibold border-b-2 transition-colors flex items-center gap-2 ${
+                view === "calendar"
+                  ? "border-indigo-500 text-white"
+                  : "border-transparent text-zinc-500 hover:text-zinc-300"
+              }`}
+            >
+              Content Calendar
+              {novaCalendar.length > 0 && (
+                <span className="text-[10px] bg-indigo-600 text-white rounded-full px-1.5 py-0.5 font-medium">
+                  {novaCalendar.length}
+                </span>
+              )}
+            </button>
           </div>
 
-          <div className="flex-1 min-h-0">
-            <KanbanBoard
-              tasks={tasks}
-              bots={orderedBots}
-              onAddTask={handleAddTask}
-              onUpdateTask={handleUpdateTask}
-            />
+          {/* Content */}
+          <div className="flex-1 min-h-0 overflow-auto">
+            {view === "tasks" && (
+              <div className="h-full">
+                <p className="text-xs text-zinc-500 mb-4">
+                  Dino assigns work to the team — track every task from idea to done.
+                </p>
+                <KanbanBoard
+                  tasks={tasks}
+                  bots={orderedBots}
+                  onAddTask={handleAddTask}
+                  onUpdateTask={handleUpdateTask}
+                />
+              </div>
+            )}
+
+            {view === "calendar" && novaCalendar.length === 0 && (
+              <div className="flex flex-col items-center justify-center h-64 text-zinc-600 gap-3">
+                <span className="text-4xl">🧠</span>
+                <p className="text-sm">Run Nova to generate the content calendar.</p>
+              </div>
+            )}
+
+            {view === "calendar" && novaCalendar.length > 0 && (
+              <ContentCalendar items={novaCalendar} />
+            )}
           </div>
         </main>
       </div>
