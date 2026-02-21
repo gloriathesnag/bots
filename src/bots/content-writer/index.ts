@@ -114,7 +114,7 @@ export async function runContentWriter(): Promise<string> {
   }
 
   if (drafts.length === 0) {
-    return "📋 No items with Status = \"Draft\" found in Notion. Mark a calendar item as Draft to queue it for Piggy.";
+    return "📋 No items with Draft checked found in Notion. Check the Draft checkbox on a calendar item to queue it for Piggy.";
   }
 
   const results: string[] = [];
@@ -168,7 +168,7 @@ export async function advancePiggyToNextStage(
     const props = (page as any).properties;
     item = {
       notionPageId: payload.notionPageId,
-      notionStatus: props?.Status?.select?.name,
+      notionStatus: props?.Draft?.checkbox ? "Draft" : undefined,
       week: props?.Week?.number ?? 0,
       date: props?.Date?.date?.start ?? "",
       title: ((props?.Name?.title ?? []) as { plain_text: string }[])

@@ -336,7 +336,7 @@ export async function fetchDraftCalendarItems(): Promise<
   do {
     const body: Record<string, unknown> = {
       page_size: 100,
-      filter: { property: "Status", select: { equals: "Draft" } },
+      filter: { property: "Draft", checkbox: { equals: true } },
     };
     if (cursor) body.start_cursor = cursor;
     const res = await notionQuery(db, body);
@@ -357,7 +357,7 @@ export async function fetchDraftCalendarItems(): Promise<
 
       items.push({
         notionPageId: page.id,
-        notionStatus: props?.Status?.select?.name ?? "Draft",
+        notionStatus: props?.Draft?.checkbox ? "Draft" : undefined,
         week: props?.Week?.number ?? 0,
         date: props?.Date?.date?.start ?? "",
         title,
@@ -384,15 +384,22 @@ export async function fetchDraftCalendarItems(): Promise<
  * Valid values: "Draft" | "Blog Pending Review" | "Newsletter Pending Review"
  *             | "X Thread Pending Review" | "LinkedIn Pending Review" | "Done"
  */
+/**
+ * Marks a calendar item as fully done by unchecking its Draft checkbox.
+ * Sub-stage transitions (Blog → Newsletter → …) are tracked in Slack only
+ * because the database uses a simple Draft checkbox rather than a Status select.
+ */
 export async function updateCalendarItemStatus(
   pageId: string,
   status: string,
 ): Promise<void> {
+  // Only touch Notion when the full pipeline is complete
+  if (status !== "Done") return;
   const client = getClient();
   await client.pages.update({
     page_id: pageId,
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    properties: { Status: { select: { name: status } } } as any,
+    properties: { Draft: { checkbox: false } } as any,
   });
 }
 
@@ -407,6 +414,6 @@ export async function updateCalendarItemContentLink(
   await client.pages.update({
     page_id: pageId,
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    properties: { "Content link": { url } } as any,
+    properties: { "Content Link": { rich_text: [{ text: { content: url } }] } } as any,
   });
 }
