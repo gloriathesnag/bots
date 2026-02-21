@@ -22,6 +22,20 @@ export default function BotCard({ bot, onRun, compact }: BotCardProps) {
 
   if (compact) {
     const lastLog = bot.logs.length > 0 ? bot.logs[bot.logs.length - 1] : null;
+    const statusLine =
+      lastLog?.message ??
+      (bot.status === "success"
+        ? "Completed successfully."
+        : bot.status === "error"
+          ? "Run failed."
+          : null);
+    const statusColor =
+      (lastLog?.level ?? bot.status) === "error"
+        ? "text-red-400"
+        : (lastLog?.level ?? bot.status) === "warn"
+          ? "text-yellow-400"
+          : "text-zinc-400";
+
     return (
       <div className="flex flex-col rounded-lg border border-zinc-800 bg-zinc-900 p-3 gap-2.5 hover:border-zinc-700 transition-colors">
         <div className="flex items-center gap-2">
@@ -43,18 +57,12 @@ export default function BotCard({ bot, onRun, compact }: BotCardProps) {
         >
           {isRunning ? "Running…" : "Run"}
         </button>
-        {lastLog && (
+        {statusLine && (
           <p
-            className={`text-[10px] font-mono leading-tight truncate ${
-              lastLog.level === "error"
-                ? "text-red-400"
-                : lastLog.level === "warn"
-                  ? "text-yellow-400"
-                  : "text-zinc-500"
-            }`}
-            title={lastLog.message}
+            className={`text-[11px] leading-snug line-clamp-2 ${statusColor}`}
+            title={statusLine}
           >
-            {lastLog.message}
+            {statusLine}
           </p>
         )}
       </div>
